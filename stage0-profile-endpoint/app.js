@@ -18,7 +18,7 @@ const loginLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-app.get('/me', async (req, res) => {
+app.get('/me', loginLimiter, async (req, res) => {
   const currentTime = new Date().toISOString();
 
   try {
