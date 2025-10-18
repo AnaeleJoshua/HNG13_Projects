@@ -1,12 +1,22 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const logEvents = require('./logger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
+
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // limit each IP to 5 requests per windowMs
+    message: 'Too many login attempts, please try again later',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 app.get('/me', async (req, res) => {
   const currentTime = new Date().toISOString();
