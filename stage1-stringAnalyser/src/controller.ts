@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 const prisma = require('./prisma/client');
+import { StringAnalysis } from "@prisma/client";
+const { parseNaturalLanguageQuery } = require('./utils/nlParser');
 // const generateHash = require('./utils/utils').generateHash;
 const {
   generateSHA256Hash,
@@ -211,10 +213,81 @@ module.exports = {
   filterStringByNaturalLanguage: async (
     req: Request,
     res: Response,
-  ): Promise<void> => {},
+  ): Promise<void> => {
+
+    const query = String(req.query.query || "").trim();
+
+  if (!query) {
+    res.status(422).json({
+      success: false,
+      error: "Query parameter 'query' is required.",
+    });
+    return;
+  }
+
+  try {
+    const { where, customChecks, parsedFilters } = parseNaturalLanguageQuery(query);
+    console.log("Parsed NL Query:", { where, parsedFilters });
+    const dbWhere = Object.keys(where || {}).length ? where : undefined;
+
+    const allStrings: StringAnalysis[] = await prisma.stringAnalysis.findMany({
+      where: dbWhere,
+    });
+
+    const formattedData = allStrings.filter((row: StringAnalysis) =>
+      (customChecks || []).every((fn:any) => fn(row))
+    );
+
+    res.status(200).json({
+      success: true,
+      data: formattedData,
+      count: formattedData.length,
+      interpreted_query: {
+        original: query,
+        parsed_filters: parsedFilters,
+      },
+    });;
+  } catch (error) {
+    console.error("Error processing natural language query:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+    return;
+  }
+  },
   
   deleteStringByValue: async (
-    req: Request, 
-    res: Response): 
-    Promise<void> => {},
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    try {
+      const value = String(req.query.value || "").trim();
+      if (!value) {
+        res.status(400).json({
+          error: "Bad Request",
+          message: "Query parameter 'value' is required",
+        });
+        return;
+      }
+
+      const hashedValue = generateSHA256Hash(value);
+
+      const record = await prisma.stringAnalysis.findUnique({
+        where: { id: hashedValue },
+      });
+
+      if (!record) {
+        res.status(404).json({ error: "Not Found", message: "String does not exist" });
+        return;
+      }
+
+      await prisma.stringAnalysis.delete({
+        where: { id: hashedValue },
+      });
+
+
+      res.status(204).json({ success: true});
+    } catch (err: any) {
+      console.error(err);
+      res.status(500).json({ error: "Internal Server Error", message: err.message });
+    }
+  },
 }

@@ -15,14 +15,14 @@ app.use(express.urlencoded({ extended: true }));
 //routes
 app.post('/strings', controller.createString);
 
-app.get('/strings/:value', controller.retrieveStringByValue);
-
 app.get(
   '/strings/filter-by-natural-language',
   controller.filterStringByNaturalLanguage,
 );
+app.get('/strings/:value', controller.retrieveStringByValue);
+
 app.get('/strings', controller.retrieveAllStringWithfilter);
-app.delete('/strings/:value', controller.deleteStringByValue);
+app.delete('/strings', controller.deleteStringByValue);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
